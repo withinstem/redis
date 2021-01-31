@@ -1,14 +1,14 @@
-# Redis stem
+# Redis Stem
 
-Redis is an open source (BSD licensed), in-memory data structure store, used as a database, cache and message broker.[\*](https://www.mongodb.com/what-is-mongodb)
+Redis is an open source (BSD licensed), in-memory data structure store, used as a database, cache and message broker.[\*](https://redis.io/)
 
 ## Build
 
-Build from the official [redis](https://hub.docker.com/_/redis) docker image. Stick to current version.
+This stem builds from an official stable [redis](https://hub.docker.com/_/redis) image, based on [debian](https://hub.docker.com/_/debian)-slim.
 
 ## Configuration
 
-Configuration based on the official [config file](https://raw.githubusercontent.com/antirez/redis/5.0.5/redis.conf) from current version.
+Stem's config is based on the official [config file](https://raw.githubusercontent.com/antirez/redis/5.0.5/redis.conf) from redis repo.
 
 Changes made:
 
@@ -16,9 +16,9 @@ Changes made:
 
 ## Deployment
 
-Deploy with docker using embedded [ops-docker](https://github.com/ops-tools/ops-docker) tool.
+Deploys with docker using embedded [ops-docker](https://github.com/ops-tools/ops-docker) tool.
 
-Exec `scripts/start` to launch local instance.
+Run `scripts/start` to launch local instance.
 
 ## License
 

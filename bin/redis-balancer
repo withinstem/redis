@@ -1,0 +1,86 @@
+#!/bin/bash
+
+self_host=(${SELF_HOST:-$(hostname)})
+self_port="${SELF_PORT:-6379}"
+self_role="${SELF_ROLE:-master}"
+cluster_dsn=(${CLUSTER_DSN})
+
+master_host=""
+master_port=""
+ts=""
+
+log() {
+  echo "$(date -u '+%FT%T.%9NZ') $@"
+}
+
+while true; do
+  sleep 1
+
+  role="$(redis-cli info replication 2>/dev/null |
+    grep 'role:' | sed 's/role://' | tr -d '\r\n')"
+  _role="$(redis-cli -h "${master_host}" -p "${master_port}" info replication 2>/dev/null |
+    grep 'role:' | sed 's/role://' | tr -d '\r\n')"
+
+  if [[
+    # Acting master
+    ("${role}" = "master" && "${self_role}" != "master") ||
+    # Wrong master connected
+    ("${role}" = "slave" && "${_role}" != "master") ||
+    # Initial run
+    -z "${ts}"
+  ]]; then
+    log "Master not good, find a new one"
+
+    master_host=""
+    master_port=""
+
+    for _uri in "${cluster_dsn[@]}"; do
+      _host="${_uri%%:*}"
+      _port="${_uri##*:}"
+
+      # Skip self
+      if [[ "${self_host[@]}" = *"${_host}"* && "${self_port}" = "${_port}" ]]; then
+        continue
+      fi
+
+      _role="$(redis-cli -h "${_host}" -p "${_port}" info replication 2>/dev/null |
+        grep 'role:' | sed 's/role://' | tr -d '\r\n')"
+      _ts="$(redis-cli -h "${_host}" -p "${_port}" get _ts 2>/dev/null)"
+
+      if [[ "${_role}" = "master" && "${_ts}" -ge "${ts}" ]]; then
+        log "Master found, obey"
+
+        master_host="${_host}"
+        master_port="${_port}"
+
+        ts="$(date '+%s%N')"
+        redis-cli -h "${master_host}" -p "${master_port}" set _ts "${ts}" >/dev/null
+        redis-cli slaveof "${master_host}" "${master_port}" >/dev/null
+
+        continue
+      fi
+    done
+  fi
+
+  if [[ "${role}" != "master" || -z "${ts}" ]]; then
+    if [[ -z "${master_host}" && -z "${master_port}" ]]; then
+      log "No master found, become one"
+
+      ts="$(date '+%s%N')"
+      redis-cli slaveof no one >/dev/null
+      redis-cli set _ts "${ts}" >/dev/null
+
+      continue
+    fi
+
+    _ts="$(redis-cli get _ts)"
+
+    if [[ "${self_role}" = "master" && "${_ts}" -ge "${ts}" ]]; then
+      log "Old master synced, return power"
+
+      ts="$(date '+%s%N')"
+      redis-cli slaveof no one >/dev/null
+      redis-cli set _ts "${ts}" >/dev/null
+    fi
+  fi
+done

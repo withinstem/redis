@@ -1,5 +1,6 @@
-FROM redis:5.0.5
+FROM redis:6.0.6-buster
 
+COPY bin/ /usr/local/bin/
 COPY conf/redis.conf /etc/redis.conf
 
-CMD ["redis-server", "/etc/redis.conf"]
+CMD ["docker-entrypoint.sh"]
